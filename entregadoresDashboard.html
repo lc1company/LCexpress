@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LCexpress Para entregadores</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #ccc;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .timeline {
+            list-style: none;
+            padding: 0;
+        }
+
+        .timeline-item {
+            border-bottom: 1px solid #ccc;
+            padding: 10px 0;
+        }
+
+        .timeline-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="tabs">
+            <div class="tab" onclick="showTab('timeline')">Pedidos disponiveis</div>
+            <div class="tab" onclick="showTab('userInfo')">Configurações</div>
+        </div>
+
+        <div id="userInfo" class="tab-content">
+            <h2>informaçõesdo usuario</h2>
+            <p id="userFullName"></p>
+            <p id="userCpfCnpj"></p>
+            <p id="userEmail"></p>
+            <h2>Sair</h2>
+            <button
+                style="background-color: rgb(255, 0, 0); color: #fff; font-size: 17px; border-radius: 5px; cursor: pointer;"
+                onclick="signOut()">Sair</button>
+        </div>
+
+        <div id="timeline" class="tab-content active">
+            <h2>Timeline</h2>
+            <ul class="timeline" id="userTimeline">
+                <!-- Timeline items will be dynamically added here -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- Adicione as bibliotecas do Firebase -->
+    <script type="module">
+        // Importar as bibliotecas do Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+        import { getFirestore, doc, collection, addDoc, getDocs, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
+        import { updateDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+        import { getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+        import { deleteObject } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
+
+        // Configurações do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyArQqELyMZIVPdqhRMAGtHsYW2lQP3Lao8",
+            authDomain: "lcexpress.firebaseapp.com",
+            projectId: "lcexpress",
+            storageBucket: "lcexpress.appspot.com",
+            messagingSenderId: "423047168645",
+            appId: "1:423047168645:web:84d4873ba44ed8bfa2dfec",
+            measurementId: "G-L3Q5SSV1ZD"
+        };
+
+        // Inicializar o Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        // Verificar se o usuário está autenticado
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Se estiver autenticado, obter informações do usuário
+                getUserInfo(user.uid);
+                getUserTimeline(user.uid);
+                verificaAprovacaoEntregador(user.uid);
+            } else {
+                console.log("Usuário não autenticado.");
+                window.location.href = "entregadoresLogin.html";
+            }
+        });
+
+        // Função para verificar se o entregador foi aprovado pela equipe
+        async function verificaAprovacaoEntregador(uid) {
+            const userDoc = await getDoc(doc(db, "users", uid));
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                if (userData.aprovacao) {
+                    // Entregador aprovado, mostrar pedidos disponíveis
+                    getUserTimeline(uid);
+                } else {
+                    // Entregador não foi aprovado, exibir mensagem de análise
+                    document.getElementById("userTimeline").innerHTML = "<p>Seu cadastro está em análise pela equipe.</p>";
+                }
+            } else {
+                console.log("Usuário não encontrado.");
+            }
+        }
+
+        // Função para obter informações do usuário
+        async function getUserInfo(uid) {
+            const userDoc = await getDoc(doc(db, "users", uid));
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                document.getElementById("userFullName").textContent = `Nome: ${userData.fullName}`;
+                document.getElementById("userCpfCnpj").textContent = `CPF/CNPJ: ${userData.cpfCnpj}`;
+                document.getElementById("userEmail").textContent = `Email: ${userData.email}`;
+            } else {
+                console.log("Usuário não encontrado.");
+            }
+        }
+
+        // Função para obter a timeline do usuário
+        async function getUserTimeline(uid) {
+            try {
+                // Consulta as rotas disponíveis na coleção "rotas"
+                const rotasQuerySnapshot = await getDocs(collection(db, "rotas"));
+
+                const userTimeline = document.getElementById("userTimeline");
+                userTimeline.innerHTML = ""; // Limpar a timeline antes de adicionar novos itens
+
+                // Itera sobre cada documento de rota
+                rotasQuerySnapshot.forEach((doc) => {
+                    const rota = doc.data();
+                    // Cria um elemento de lista para exibir a rota na timeline
+                    const li = document.createElement("li");
+                    li.classList.add("timeline-item");
+                    li.innerHTML = `
+                <h3>${rota.destinatarioNome}</h3>
+                <p><strong>Endereço de Entrega:</strong> ${rota.enderecoEntrega}</p>
+                <p><strong>Descrição da Rota:</strong> ${rota.descricaoRota}</p>
+                <button onclick="aceitarRota('${doc.id}')">Aceitar Rota</button>
+            `;
+                    userTimeline.appendChild(li);
+                });
+            } catch (error) {
+                console.error("Erro ao obter rotas:", error);
+            }
+        }
+
+        // Função para aceitar uma rota
+        window.aceitarRota = async function(rotaId) {
+            try {
+                // Atualiza o status da rota para "aceita"
+                await updateDoc(doc(db, "rotas", rotaId), {
+                    status: "aceita"
+                });
+                // Recarrega a timeline para atualizar a lista de rotas
+                getUserTimeline(auth.currentUser.uid);
+            } catch (error) {
+                console.error("Erro ao aceitar rota:", error);
+            }
+        }
+
+        // Função para alternar entre as abas
+        window.showTab = function (tabId) {
+            const tabs = document.querySelectorAll(".tab-content");
+            tabs.forEach(tab => {
+                tab.classList.remove("active");
+            });
+            const selectedTab = document.getElementById(tabId);
+            selectedTab.classList.add("active");
+        }
+
+        window.signOut = function () {
+            try {
+                // Fazer logout do usuário usando Firebase Authentication
+                auth.signOut().then(() => {
+                    // Redirecionar o usuário para a página de login após fazer logout
+                    window.location.href = "entregadoresLogin.html";
+                }).catch((error) => {
+                    console.error("Erro ao fazer logout:", error);
+                });
+            } catch (error) {
+                console.error("Erro ao fazer logout:", error);
+            }
+        }
+    </script>
+
+</body>
+
+</html>

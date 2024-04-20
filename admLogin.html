@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login do Administrador</title>
+</head>
+
+<body>
+    <h1>Login do Administrador</h1>
+
+    <form onsubmit="loginAdmin(event)">
+        <input type="email" placeholder="Email" id="adminEmail">
+        <input type="password" placeholder="Senha" id="adminPassword">
+        <input type="submit" value="Entrar">
+    </form>
+
+    <p id="message" style="display:none;"></p>
+
+    <!-- Adicione as bibliotecas do Firebase -->
+    <script type="module">
+        // Importar as bibliotecas do Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+
+        // Configurações do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyArQqELyMZIVPdqhRMAGtHsYW2lQP3Lao8",
+            authDomain: "lcexpress.firebaseapp.com",
+            projectId: "lcexpress",
+            storageBucket: "lcexpress.appspot.com",
+            messagingSenderId: "423047168645",
+            appId: "1:423047168645:web:84d4873ba44ed8bfa2dfec",
+            measurementId: "G-L3Q5SSV1ZD"
+        };
+
+        // Inicializar o Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Função para fazer login do administrador
+        window.loginAdmin = function(event) {
+            event.preventDefault(); // Evita o envio do formulário padrão
+
+            const email = document.getElementById("adminEmail").value;
+            const password = document.getElementById("adminPassword").value;
+
+            signInWithEmailAndPassword(auth, email, password)
+                .then((userCredential) => {
+                    // Redirecionar para a página de administração após o login bem-sucedido
+                    window.location.href = "adm.html";
+                })
+                .catch((error) => {
+                    console.error("Erro ao fazer login do administrador: ", error);
+                    document.getElementById("message").textContent = "Erro ao fazer login, verifique suas credenciais.";
+                    document.getElementById("message").style.display = "block";
+                });
+        }
+    </script>
+</body>
+
+</html>

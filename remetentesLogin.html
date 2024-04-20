@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tela de Login e Registro Remetentes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        input[type="submit"] {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h2 style="color: #000; margin-left: 27%;">Tela de Login</h2>
+        <button
+            style="margin-bottom: 2%; font-size: 20px; background-color: #007bff; border-radius: 4px; color:#fff; margin-left: 25%; cursor: pointer;"
+            onclick="showRegisterForm(event)">Registro</button>
+        <button
+            style="margin-bottom: 2%; font-size: 20px; background-color: #007bff; border-radius: 4px; color:#fff; cursor: pointer;"
+            onclick="showLoginForm(event)">Login</button>
+
+        <form id="registerForm" style="display:none;" onsubmit="registerUser(event)">
+            <input type="text" placeholder="Nome Completo" id="fullName">
+            <input type="text" placeholder="CPF ou CNPJ" id="cpfCnpj">
+            <input type="email" placeholder="Email" id="email">
+            <input type="password" placeholder="Senha" id="password">
+            <input type="submit" value="Salvar">
+        </form>
+
+        <form id="loginForm" style="display:none;" onsubmit="loginUser(event)">
+            <input type="email" placeholder="Email" id="loginEmail">
+            <input type="password" placeholder="Senha" id="loginPassword">
+            <input type="submit" value="Entrar">
+        </form>
+
+        <p id="message" style="display:none;"></p>
+    </div>
+
+    <!-- Adicione as bibliotecas do Firebase -->
+    <script type="module">
+        // Importar as bibliotecas do Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+
+        // Configurações do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyArQqELyMZIVPdqhRMAGtHsYW2lQP3Lao8",
+            authDomain: "lcexpress.firebaseapp.com",
+            projectId: "lcexpress",
+            storageBucket: "lcexpress.appspot.com",
+            messagingSenderId: "423047168645",
+            appId: "1:423047168645:web:84d4873ba44ed8bfa2dfec",
+            measurementId: "G-L3Q5SSV1ZD"
+        };
+
+        // Inicializar o Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        window.showRegisterForm = function (event) {
+            event.preventDefault(); // Evita a atualização da página
+            document.getElementById("registerForm").style.display = "block";
+            document.getElementById("loginForm").style.display = "none";
+            document.getElementById("message").style.display = "none";
+        }
+
+        window.showLoginForm = function (event) {
+            event.preventDefault(); // Evita a atualização da página
+            document.getElementById("loginForm").style.display = "block";
+            document.getElementById("registerForm").style.display = "none";
+            document.getElementById("message").style.display = "none";
+        }
+
+        window.registerUser = async function (event) {
+            event.preventDefault(); // Evita a atualização da página
+            console.log("Registrando usuário...");
+
+            const fullName = document.getElementById("fullName").value;
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            const cpfCnpj = document.getElementById("cpfCnpj").value;
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                console.log("Usuário registrado com sucesso!");
+
+                const userUid = userCredential.user.uid;
+
+                const userData = {
+                    fullName: fullName,
+                    email: email,
+                    cpfCnpj: cpfCnpj,
+                };
+
+                await setDoc(doc(db, "users", userUid), userData);
+                console.log("Dados do usuário salvos no Firestore com sucesso!");
+
+                document.getElementById("registerForm").reset();
+                document.getElementById("message").innerHTML = "Usuário registrado com sucesso!";
+                document.getElementById("message").style.display = "block";
+            } catch (error) {
+                console.error("Erro ao registrar usuário: ", error);
+                const mensagemErroElement = document.getElementById("message");
+                mensagemErroElement.textContent = "Erro ao registrar usuário. Verifique os campos e tente novamente.";
+                mensagemErroElement.style.display = "block";
+            }
+        }
+
+        window.loginUser = function (event) {
+            event.preventDefault(); // Evita a atualização da página
+            console.log("Fazendo login...");
+
+            const email = document.getElementById("loginEmail").value;
+            const password = document.getElementById("loginPassword").value;
+
+            signInWithEmailAndPassword(auth, email, password)
+                .then((userCredential) => {
+                    console.log("Login bem-sucedido!");
+
+                    document.getElementById("loginForm").reset();
+                    document.getElementById("message").innerHTML = "Login bem-sucedido!";
+                    document.getElementById("message").style.display = "block";
+
+                    window.location.href = "remetentes.html";
+                })
+                .catch((error) => {
+                    console.error("Erro ao fazer login: ", error);
+                    const mensagemErroElement = document.getElementById("message");
+                    mensagemErroElement.textContent = "Erro: email ou senha incorreta, tente novamente.";
+                    mensagemErroElement.style.display = "block";
+                });
+        }
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Página de Administração</title>
+</head>
+
+<body>
+    <h1>Administração de Cadastros de Entregadores</h1>
+
+    <div id="entregadoresList"></div>
+
+    <!-- Adicione as bibliotecas do Firebase -->
+    <script type="module">
+        // Importar as bibliotecas do Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, updateDoc, query, where, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+
+        // Configurações do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyArQqELyMZIVPdqhRMAGtHsYW2lQP3Lao8",
+            authDomain: "lcexpress.firebaseapp.com",
+            projectId: "lcexpress",
+            storageBucket: "lcexpress.appspot.com",
+            messagingSenderId: "423047168645",
+            appId: "1:423047168645:web:84d4873ba44ed8bfa2dfec",
+            measurementId: "G-L3Q5SSV1ZD"
+        };
+
+        // Inicializar o Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Verificar se o usuário está autenticado como administrador
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("Usuário autenticado como administrador:", user);
+                // O usuário está autenticado como administrador
+                carregarEntregadoresPendentes();
+            } else {
+                console.log("Usuário não autenticado como administrador. Redirecionando para a página de login...");
+                // O usuário não está autenticado, redirecionar para a página de login do administrador
+                window.location.href = "admLogin.html";
+            }
+        });
+
+        // Função para carregar os entregadores pendentes
+        async function carregarEntregadoresPendentes() {
+            const entregadoresRef = collection(db, 'users');
+            const querySnapshot = await getDocs(entregadoresRef);
+
+            const entregadoresList = document.getElementById('entregadoresList');
+            let hasPendentes = false; // Flag para verificar se há entregadores pendentes
+
+            querySnapshot.forEach((doc) => {
+                const entregador = doc.data();
+                if (entregador.aprovacao === false) { // Verifica se o campo 'aprovacao' é falso
+                    const entregadorDiv = document.createElement('div');
+                    entregadorDiv.innerHTML = `
+                <h3>${entregador.fullName}</h3>
+                <p>Email: ${entregador.email}</p>
+                <p>CPF/CNPJ: ${entregador.cpfCnpj}</p>
+                <p>Foto do RG (frente):</p>
+                    <img src="${entregador.rgFileUrl}" alt="Foto do RG (frente)" style="width: 50%; height: 40%;">
+                    <p>Foto do RG (verso):</p>
+                    <img src="${entregador.rgFileVersoUrl}" alt="Foto do RG (verso)" style="width: 50%; height: 40%;">
+                    <p>Foto da CNH:</p>
+                    <img src="${entregador.cnhFileUrl}" alt="Foto da CNH" style="width: 50%; height: 40%;">
+                    <p>Foto do rosto:</p>
+                    <img src="${entregador.faceFileUrl}" alt="Foto do rosto" style="width: 50%; height: 40%;">
+                <p><button onclick="aprovarEntregador('${doc.id}')">Aprovar</button></p>`;
+                    entregadoresList.appendChild(entregadorDiv);
+                    hasPendentes = true; // Indica que há entregadores pendentes
+                }
+            });
+
+            if (!hasPendentes) {
+                console.log("Nenhum entregador pendente encontrado.");
+            }
+        }
+
+        // Função para aprovar um entregador
+        window.aprovarEntregador = async function(userId) {
+            console.log("Aprovando entregador com ID:", userId);
+            const userRef = doc(db, 'users', userId);
+            await updateDoc(userRef, {
+                aprovacao: true
+            });
+            alert('Entregador aprovado com sucesso!');
+            console.log("Entregador aprovado com sucesso!");
+            // Recarregar a lista de entregadores pendentes
+            document.getElementById('entregadoresList').innerHTML = '';
+            carregarEntregadoresPendentes();
+        }
+    </script>
+</body>
+
+</html>
